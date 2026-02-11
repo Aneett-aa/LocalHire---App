@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
-  const OtpVerificationScreen({super.key});
+  final String phoneNumber;
+
+  const OtpVerificationScreen({super.key, required this.phoneNumber});
 
   @override
-  State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
+  State<OtpVerificationScreen> createState() =>
+      _OtpVerificationScreenState();
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
@@ -15,8 +19,38 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   final List<FocusNode> _focusNodes =
       List.generate(6, (_) => FocusNode());
 
+  Timer? _timer;
+  int _secondsRemaining = 120;
+  bool _canResend = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _secondsRemaining = 120;
+    _canResend = false;
+
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining == 0) {
+        timer.cancel();
+        setState(() {
+          _canResend = true;
+        });
+      } else {
+        setState(() {
+          _secondsRemaining--;
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _timer?.cancel();
     for (var controller in _controllers) {
       controller.dispose();
     }
@@ -28,6 +62,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    String formattedTime =
+        "${(_secondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}";
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -50,7 +87,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           children: [
             const SizedBox(height: 20),
 
-            // Lock Icon
             Container(
               height: 72,
               width: 72,
@@ -69,7 +105,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
             const Text(
               "Verify OTP",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              style:
+                  TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
@@ -81,25 +118,23 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
             const SizedBox(height: 4),
 
-            const Text(
-              "+91 98765 43210",
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            // ✅ Dynamic Phone Number
+            Text(
+              widget.phoneNumber,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
 
             const SizedBox(height: 30),
 
-            // OTP Input Boxes
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(
-                6,
-                (index) => _otpBox(index),
-              ),
+              children:
+                  List.generate(6, (index) => _otpBox(index)),
             ),
 
             const SizedBox(height: 30),
 
-            // Verify Button
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -115,10 +150,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                 child: const Text(
                   "Verify & Proceed",
                   style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black),
                 ),
               ),
             ),
@@ -127,30 +161,25 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
             const Text(
               "Didn't receive the code?",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style:
+                  TextStyle(fontSize: 14, color: Colors.grey),
             ),
 
             const SizedBox(height: 6),
 
-            RichText(
-              text: TextSpan(
-                style: const TextStyle(fontSize: 14),
-                children: [
-                  const TextSpan(
-                    text: "Resend OTP ",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  TextSpan(
-                    text: "00:30",
-                    style: TextStyle(
-                      color: Colors.orange.shade600,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            GestureDetector(
+              onTap: _canResend ? _resendOtp : null,
+              child: Text(
+                _canResend
+                    ? "Resend OTP"
+                    : "Resend OTP $formattedTime",
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _canResend
+                      ? Colors.orange.shade600
+                      : Colors.grey,
+                ),
               ),
             ),
           ],
@@ -159,7 +188,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 
-  // OTP Box Widget
   Widget _otpBox(int index) {
     return SizedBox(
       width: 48,
@@ -174,18 +202,18 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
           FilteringTextInputFormatter.digitsOnly,
         ],
         style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+            fontSize: 18, fontWeight: FontWeight.bold),
         decoration: InputDecoration(
           counterText: "",
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+            borderSide:
+                const BorderSide(color: Color(0xFFE0E0E0)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.orange, width: 1.5),
+            borderSide: const BorderSide(
+                color: Colors.orange, width: 1.5),
           ),
         ),
         onChanged: (value) {
@@ -199,18 +227,25 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     );
   }
 
-  // Collect OTP
   void _verifyOtp() {
     String otp = _controllers.map((c) => c.text).join();
 
     if (otp.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter complete OTP")),
+        const SnackBar(
+            content: Text("Please enter complete OTP")),
       );
       return;
     }
 
-    // TODO: Firebase OTP verification here
     debugPrint("Entered OTP: $otp");
+  }
+
+  void _resendOtp() {
+    debugPrint("Resending OTP to ${widget.phoneNumber}");
+
+    // TODO: Call Firebase resend OTP here
+
+    _startTimer(); // restart countdown
   }
 }

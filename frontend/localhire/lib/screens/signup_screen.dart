@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'otp_verification.dart';
+import 'package:localhire/screens/mobile_no.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -124,7 +124,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 onPressed: () {Navigator.push(
     context,
     MaterialPageRoute(
-      builder: (context) => const OtpVerificationScreen(),
+      builder: (context) => const MobileNumberScreen(),
     ),
   );},
                 style: ElevatedButton.styleFrom(
