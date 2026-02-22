@@ -17,23 +17,32 @@ class AuthService {
 
   // 📲 Send OTP
   Future<void> sendOTP({
-    required String phone,
-    required Function(String verificationId) onCodeSent,
-  }) async {
+  required String phone,
+  required Function(String verificationId) onCodeSent,
+}) async {
 
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phone,
-      verificationCompleted: (PhoneAuthCredential credential) async {},
-      verificationFailed: (FirebaseAuthException e) {
-        print("OTP Failed: ${e.message}");
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        onCodeSent(verificationId);
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {},
-    );
-  }
+  await _auth.verifyPhoneNumber(
+    phoneNumber: phone,
 
+    verificationCompleted: (PhoneAuthCredential credential) async {
+      // Optional: can auto sign in here if needed
+    },
+
+    verificationFailed: (FirebaseAuthException e) {
+      print("OTP Failed: ${e.message}");
+    },
+
+    codeSent: (String verificationId, int? resendToken) {
+      print("CODE SENT ID: $verificationId");
+      onCodeSent(verificationId);
+    },
+
+    codeAutoRetrievalTimeout: (String verificationId) {
+      print("TIMEOUT ID: $verificationId");
+      onCodeSent(verificationId);   // 🔥 VERY IMPORTANT
+    },
+  );
+}
   // 🔢 Verify OTP
   Future<void> verifyOTP({
     required String verificationId,
@@ -49,39 +58,25 @@ class AuthService {
     await _auth.signInWithCredential(credential);
   }
 
-  // 💾 Save User
-  Future<void> saveUser({
-    required String username,
-    required String password,
-    required String phone,
-  }) async {
-
-    final hashedPassword = hashPassword(password);
-
-    await _firestore.collection('users').doc(username).set({
-      'username': username,
-      'password': hashedPassword,
-      'phone': phone,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-  }
+  
 
   // 🔑 Login
   Future<bool> loginUser({
-    required String username,
-    required String password,
-  }) async {
+  required String username,
+  required String password,
+}) async {
 
-    final doc = await _firestore
-        .collection('users')
-        .doc(username)
-        .get();
+  final query = await _firestore
+      .collection('users')
+      .where('username', isEqualTo: username)
+      .get();
 
-    if (!doc.exists) return false;
+  if (query.docs.isEmpty) return false;
 
-    final storedHash = doc['password'];
-    final enteredHash = hashPassword(password);
+  final userDoc = query.docs.first;
+  final storedHash = userDoc['password'];
+  final enteredHash = hashPassword(password);
 
-    return storedHash == enteredHash;
-  }
+  return storedHash == enteredHash;
+}
 }

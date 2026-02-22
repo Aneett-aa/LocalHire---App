@@ -7,9 +7,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:path/path.dart' as p;
+import '../services/auth_service.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
-  const CompleteProfileScreen({super.key});
+
+  final String username;
+  final String password;
+  final String phone;
+
+  const CompleteProfileScreen({
+    super.key,
+    required this.username,
+    required this.password,
+    required this.phone,
+  });
 
   @override
   State<CompleteProfileScreen> createState() =>
@@ -112,22 +123,26 @@ class _CompleteProfileScreenState
 
       // Encrypt ID URL
       final encryptedId = encryptData(idUrl);
-
+final authService = AuthService();
+final hashedPassword = authService.hashPassword(widget.password);
       // Save to Firestore
       await FirebaseFirestore.instance
-          .collection("users")
-          .doc(user.uid)
-          .set({
-        "name": _nameController.text.trim(),
-        "age": int.parse(_ageController.text.trim()),
-        "gender": _selectedGender,
-        "location": _locationController.text.trim(),
-        "skills": skills,
-        "profileImage": profileUrl,
-        "idProof": encryptedId,
-        "verificationStatus": "pending",
-        "createdAt": Timestamp.now(),
-      });
+    .collection("users")
+    .doc(user.uid)
+    .set({
+  "username": widget.username,
+  "password": hashedPassword, 
+  "phone": widget.phone,
+  "name": _nameController.text.trim(),
+  "age": int.parse(_ageController.text.trim()),
+  "gender": _selectedGender,
+  "location": _locationController.text.trim(),
+  "skills": skills,
+  "profileImage": profileUrl,
+  "idProof": encryptedId,
+  "verificationStatus": "pending",
+  "createdAt": Timestamp.now(),
+});
 
       Navigator.pushReplacement(
         context,

@@ -276,43 +276,39 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       return;
     }
 
+print("Using verificationId: ${widget.verificationId}");
+print("Entered OTP: $otp");
     setState(() => _isLoading = true);
 
-    try {
+   try {
 
-      await _authService.verifyOTP(
-        verificationId:
-            widget.verificationId,
-        smsCode: otp,
-      );
+  await _authService.verifyOTP(
+    verificationId: widget.verificationId,
+    smsCode: otp,
+  );
 
-      await _authService.saveUser(
+  setState(() => _isLoading = false);
+
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (context) => CompleteProfileScreen(
         username: widget.username,
         password: widget.password,
         phone: widget.phone,
-      );
+      ),
+    ),
+  );
 
-      setState(() => _isLoading = false);
+} catch (e) {
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              const CompleteProfileScreen(),
-        ),
-      );
+  setState(() => _isLoading = false);
 
-    } catch (e) {
-
-      setState(() => _isLoading = false);
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(
-        SnackBar(
-            content: Text(
-                "Invalid OTP. Try again.")),
-      );
-    }
+  ScaffoldMessenger.of(context)
+      .showSnackBar(
+    SnackBar(content: Text("Error: $e")),
+  );
+}
   }
 
   void _resendOtp() {
