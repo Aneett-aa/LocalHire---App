@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'saved_screen.dart';
 import 'job_details_screen.dart';
-import 'chat_screen.dart';
 import 'add_job/add_job_screen.dart';
+import 'chat_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -13,6 +13,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int currentIndex = 0;
   String selectedType = "All";
   String selectedSort = "None";
   String searchText = "";
@@ -64,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
-
       body: SafeArea(
         child: Column(
           children: [
@@ -90,26 +90,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Spacer(),
-                  Stack(
-                    children: [
-                      Icon(Icons.notifications_none, size: 28),
-                      Positioned(
-                        right: 2,
-                        top: 2,
-                        child: CircleAvatar(
-                          radius: 4,
-                          backgroundColor: Colors.red,
-                        ),
-                      ),
-                    ],
-                  ),
+                  Icon(Icons.notifications_none, size: 28),
                 ],
               ),
             ),
 
             const SizedBox(height: 15),
 
-            /// SEARCH
+            /// SEARCH BAR
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
@@ -188,13 +176,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      /// BOTTOM NAV
+      /// BOTTOM NAVIGATION
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
+        currentIndex: currentIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFFFFB544),
         unselectedItemColor: Colors.grey,
-        showUnselectedLabels: true,
         onTap: (index) {
           if (index == 1) {
             Navigator.push(
@@ -216,6 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
               context,
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
             );
+          } else {
+            setState(() {
+              currentIndex = index;
+            });
           }
         },
         items: const [
@@ -272,8 +263,38 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 10),
           Text(
             job["title"],
-            style:
-                const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.location_on,
+                  size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(job["location"]),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(job["date"]),
+              const Spacer(),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFB544),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => JobDetailsScreen(job: job),
+                    ),
+                  );
+                },
+                child: const Text("View"),
+              ),
+            ],
           ),
         ],
       ),
@@ -283,20 +304,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showFilterDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Filter by Type"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _filterOption("All"),
-              _filterOption("FULL-TIME"),
-              _filterOption("CONTRACT"),
-              _filterOption("PART-TIME"),
-            ],
-          ),
-        );
-      },
+      builder: (_) => AlertDialog(
+        title: const Text("Filter by Type"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _filterOption("All"),
+            _filterOption("FULL-TIME"),
+            _filterOption("CONTRACT"),
+            _filterOption("PART-TIME"),
+          ],
+        ),
+      ),
     );
   }
 
