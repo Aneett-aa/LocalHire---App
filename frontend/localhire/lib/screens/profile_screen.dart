@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -8,14 +12,95 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+
   bool isHiring = false;
 
   final Color primaryGold = const Color(0xFFFFB544);
   final Color lightCream = const Color(0xFFFFE7BF);
   final Color localRed = const Color(0xFFE53935);
 
+List<Map<String, dynamic>> reviews = [];
+double averageRating = 0.0;
+bool reviewLoading = true;
+
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserData();
+    fetchReviews();
+  }
+
+  Future<void> fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance
+          .collection("users")
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        setState(() {
+          userData = doc.data();
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> fetchReviews() async {
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user == null) return;
+
+  final query = await FirebaseFirestore.instance
+      .collection("reviews")
+      .where("toUserId", isEqualTo: user.uid)
+      .get();
+
+  double total = 0;
+  reviews.clear();
+
+  for (var doc in query.docs) {
+    final data = doc.data();
+    reviews.add(data);
+    total += (data["rating"] ?? 0);
+  }
+
+  if (reviews.isNotEmpty) {
+    averageRating = total / reviews.length;
+  }
+
+  setState(() {
+    reviewLoading = false;
+  });
+}
+
   @override
   Widget build(BuildContext context) {
+
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final name = userData?["name"] ?? "";
+    final location = userData?["location"] ?? "";
+    final profileImage = userData?["profileImage"];
+    final skills = List<String>.from(userData?["skills"] ?? []);
+    final createdAt = userData?["createdAt"];
+
+    String memberSince = "";
+    if (createdAt != null) {
+      final date = createdAt.toDate();
+      memberSince =
+          "${date.month}/${date.year}";
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
 
@@ -57,40 +142,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       border: Border.all(color: primaryGold, width: 4),
                       shape: BoxShape.circle,
                     ),
-                    child: const CircleAvatar(
+                    child: CircleAvatar(
                       radius: 55,
-                      backgroundImage: NetworkImage(
-                        "https://i.pravatar.cc/300?img=5",
-                      ),
+                      backgroundImage: profileImage != null
+                          ? NetworkImage(profileImage)
+                          : null,
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: primaryGold,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(Icons.check,
-                        size: 14, color: Colors.white),
-                  )
+                  
                 ],
               ),
 
               const SizedBox(height: 15),
 
-              const Text(
-                "Alex Rivera",
-                style: TextStyle(
+              Text(
+                name,
+                style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold),
               ),
 
               const SizedBox(height: 5),
 
-              const Text(
-                "New Delhi, DL • Member since Oct 2022",
-                style: TextStyle(color: Colors.grey, fontSize: 13),
+              Text(
+                "$location • Member since $memberSince",
+                style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
 
               const SizedBox(height: 25),
@@ -156,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Text(
                 isHiring
                     ? "Regularly looking for reliable help with home maintenance and specialized tasks."
-                    : "Experienced handyman and dog lover. I specialize in plumbing and weekend services.",
+                    : "Experienced LocalHire worker with skills in ${skills.join(", ")}.",
                 style: const TextStyle(height: 1.5),
               ),
 
@@ -164,9 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _sectionTitle(isHiring ? "Employer Stats" : "Worker Stats"),
               const SizedBox(height: 12),
-              isHiring
-                  ? _statCard("24", "Jobs Posted")
-                  : _statCard("86", "Jobs Completed"),
+              _statCard("—", isHiring ? "Jobs Posted" : "Jobs Completed"),
 
               const SizedBox(height: 30),
 
@@ -181,12 +255,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    _serviceChip("🏠 Home Repairs"),
-                    _serviceChip("🚰 Plumbing"),
-                    _serviceChip("🐕 Dog Walking"),
-                    _serviceChip("🛋 Furniture Assembly"),
-                  ],
+                  children: skills
+                      .map((skill) => _serviceChip(skill))
+                      .toList(),
                 ),
               ],
 
@@ -290,6 +361,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _reviewCard() {
+
+  if (reviewLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
+
+  if (reviews.isEmpty) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -302,30 +379,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
         color: Colors.white,
       ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("4.9",
-              style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold)),
-          SizedBox(height: 5),
-          Row(
-            children: [
-              Icon(Icons.star, color: Color(0xFFFFB544)),
-              Icon(Icons.star, color: Color(0xFFFFB544)),
-              Icon(Icons.star, color: Color(0xFFFFB544)),
-              Icon(Icons.star, color: Color(0xFFFFB544)),
-              Icon(Icons.star, color: Color(0xFFFFB544)),
-            ],
-          ),
-          SizedBox(height: 5),
-          Text("124 Reviews",
-              style: TextStyle(color: Colors.grey)),
-        ],
-      ),
+      child: const Text("No reviews yet"),
     );
   }
+
+  return Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: const [
+        BoxShadow(
+            blurRadius: 6,
+            color: Colors.black12,
+            offset: Offset(0, 2))
+      ],
+      color: Colors.white,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+
+        Text(
+          averageRating.toStringAsFixed(1),
+          style: const TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 5),
+
+        Row(
+          children: List.generate(5, (index) {
+            return Icon(
+              index < averageRating.round()
+                  ? Icons.star
+                  : Icons.star_border,
+              color: const Color(0xFFFFB544),
+            );
+          }),
+        ),
+
+        const SizedBox(height: 5),
+
+        Text(
+          "${reviews.length} Reviews",
+          style: const TextStyle(color: Colors.grey),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _serviceChip(String text) {
     return Container(
@@ -355,7 +458,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Text(text,
             style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 14)),
+                fontSize: 14,
+                color:Colors.white,)),
       ),
     );
   }
