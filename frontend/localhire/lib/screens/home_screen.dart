@@ -26,6 +26,9 @@ class _HomeScreenState extends State<HomeScreen> {
       "salary": 1800,
       "date": "Nov 25, 2026",
       "time": "2h ago",
+      "description": "Assist in warehouse operations and inventory handling.",
+      "postedByName": "Rahul Sharma",
+      "postedByImage": "https://i.pravatar.cc/150?img=5",
     },
     {
       "type": "CONTRACT",
@@ -34,6 +37,9 @@ class _HomeScreenState extends State<HomeScreen> {
       "salary": 1200,
       "date": "Nov 25, 2026",
       "time": "5h ago",
+      "description": "Maintain garden and landscaping work.",
+      "postedByName": "Anita Verma",
+      "postedByImage": "https://i.pravatar.cc/150?img=6",
     },
     {
       "type": "PART-TIME",
@@ -42,12 +48,15 @@ class _HomeScreenState extends State<HomeScreen> {
       "salary": 2250,
       "date": "Nov 25, 2026",
       "time": "1d ago",
+      "description": "Deliver packages safely within city limits.",
+      "postedByName": "Amit Singh",
+      "postedByImage": "https://i.pravatar.cc/150?img=7",
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    List filteredJobs = jobs.where((job) {
+    List<Map<String, dynamic>> filteredJobs = jobs.where((job) {
       final matchesSearch =
           job["title"].toLowerCase().contains(searchText.toLowerCase());
 
@@ -182,28 +191,38 @@ class _HomeScreenState extends State<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         selectedItemColor: const Color(0xFFFFB544),
         unselectedItemColor: Colors.grey,
-        onTap: (index) {
+        onTap: (index) async {
           if (index == 1) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SavedScreen()),
             );
-          } else if (index == 2) {
-            Navigator.push(
+          } 
+          else if (index == 2) {
+            final newJob = await Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const AddJobScreen()),
             );
-          } else if (index == 3) {
+
+            if (newJob != null) {
+              setState(() {
+                jobs.insert(0, newJob);
+              });
+            }
+          } 
+          else if (index == 3) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ChatScreen()),
             );
-          } else if (index == 4) {
+          } 
+          else if (index == 4) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
             );
-          } else {
+          } 
+          else {
             setState(() {
               currentIndex = index;
             });
