@@ -3,6 +3,8 @@ import 'saved_screen.dart';
 import 'job_details_screen.dart';
 import 'add_job/add_job_screen.dart';
 import 'chat_screen.dart';
+import 'notification_screen.dart';
+import 'add_job/add_job_screen.dart'; // ✅ Added
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,6 +19,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String selectedType = "All";
   String selectedSort = "None";
   String searchText = "";
+
+  int unreadNotifications = 3; // Example unread count
 
   List<Map<String, dynamic>> jobs = [
     {
@@ -80,30 +84,73 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 10),
 
             /// HEADER
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: const [
-                  Icon(Icons.location_on, color: Color(0xFFFFB544)),
-                  SizedBox(width: 5),
-                  Expanded(
+  Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Row(
+      children: [
+        const Icon(Icons.location_on, color: Color(0xFFFFB544)),
+        const SizedBox(width: 5),
+
+        const Expanded(
+          child: Text(
+            "Mumbai, Maharashtra",
+            style: TextStyle(fontWeight: FontWeight.w600),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+
+        const Text(
+          "LocalHire",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+
+        const Spacer(),
+
+        /// ✅ Updated notification bell
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const NotificationScreen(),
+              ),
+            );
+          },
+          child: Stack(
+            children: [
+              const Icon(Icons.notifications_none, size: 28),
+
+              if (unreadNotifications > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
                     child: Text(
-                      "Mumbai, Maharashtra",
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
+                      '$unreadNotifications',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  Text(
-                    "LocalHire",
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  Spacer(),
-                  Icon(Icons.notifications_none, size: 28),
-                ],
-              ),
-            ),
-
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
             const SizedBox(height: 15),
 
             /// SEARCH BAR
