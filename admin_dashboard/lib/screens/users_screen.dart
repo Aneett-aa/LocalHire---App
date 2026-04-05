@@ -106,6 +106,20 @@ class UsersScreen extends StatelessWidget {
 
                       const SizedBox(height: 12),
 
+                      // 🔐 VERIFICATION STATUS
+                      Text(
+                        "Verification: ${data['verificationStatus'] ?? 'pending'}",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: data['verificationStatus'] == 'approved'
+                              ? Colors.green
+                              : data['verificationStatus'] == 'rejected'
+                                  ? Colors.red
+                                  : Colors.orange,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
                       // 🚨 BAN STATUS
                       Text(
                         data['isBanned'] == true
@@ -117,6 +131,53 @@ class UsersScreen extends StatelessWidget {
                               : Colors.green,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // ✅ APPROVE / ❌ REJECT
+                      Row(
+                        children: [
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                            ),
+                            onPressed: () async {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(doc.id)
+                                  .update({
+                                'verificationStatus': 'approved',
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("User Approved ✅")),
+                              );
+                            },
+                            child: const Text("Approve"),
+                          ),
+
+                          const SizedBox(width: 10),
+
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                            ),
+                            onPressed: () async {
+                              await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(doc.id)
+                                  .update({
+                                'verificationStatus': 'rejected',
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("User Rejected ❌")),
+                              );
+                            },
+                            child: const Text("Reject"),
+                          ),
+                        ],
                       ),
 
                       const SizedBox(height: 10),

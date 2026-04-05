@@ -7,6 +7,8 @@ import '../services/chat_service.dart';
 import '../models/message_model.dart';
 import 'worker_profile_screen.dart';
 import 'location_picker_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MessageScreen extends StatefulWidget {
   final String chatId;
@@ -208,71 +210,132 @@ class _MessageScreenState extends State<MessageScreen> {
   }
 
   Future<void> showReportDialog() async {
-    String? selectedReason;
-    final detailController = TextEditingController();
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+  String? selectedReason;
+  final detailController = TextEditingController();
+
+  await showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16)),
+          borderRadius: BorderRadius.circular(16),
+        ),
         title: const Text("Report User"),
         content: StatefulBuilder(
-          builder: (context, setState) => SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: selectedReason,
-                  decoration:
-                      const InputDecoration(labelText: "Reason"),
-                  items: const [
-                    DropdownMenuItem(
-                        value: "Harassment",
-                        child: Text("Harassment")),
-                    DropdownMenuItem(
-                        value: "Offensive Content",
-                        child: Text("Offensive Content")),
-                    DropdownMenuItem(
-                        value: "Spam", child: Text("Spam")),
-                    DropdownMenuItem(
-                        value: "Fake Profile",
-                        child: Text("Fake Profile")),
-                    DropdownMenuItem(
-                        value: "Other", child: Text("Other")),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => selectedReason = v),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: detailController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: "Details (optional)",
-                    border: OutlineInputBorder(),
+          builder: (context, setState) {
+            return SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: selectedReason,
+                    decoration: const InputDecoration(labelText: "Reason"),
+                    items: const [
+                      DropdownMenuItem(
+                          value: "Harassment",
+                          child: Text("Harassment")),
+                      DropdownMenuItem(
+                          value: "Offensive Content",
+                          child: Text("Offensive Content")),
+                      DropdownMenuItem(
+                          value: "Spam", child: Text("Spam")),
+                      DropdownMenuItem(
+                          value: "Fake Profile",
+                          child: Text("Fake Profile")),
+                      DropdownMenuItem(
+                          value: "Other", child: Text("Other")),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedReason = value;
+                      });
+                    },
                   ),
-                ),
-              ],
-            ),
-          ),
+
+                  const SizedBox(height: 12),
+
+                  TextField(
+                    controller: detailController,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: "Details (optional)",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
+
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("Report submitted")));
+            },
+            child: const Text("Cancel"),
+          ),
+
+          TextButton(
+            onPressed: () async {
+              final currentUser =
+                  FirebaseAuth.instance.currentUser?.uid;
+
+              print("REPORT CLICKED");
+              print("User: $currentUser");
+              print("Other: ${widget.otherUserId}");
+              print("Reason: $selectedReason");
+
+              if (currentUser == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("User not logged in ❗")),
+                );
+                return;
+              }
+
+              if (selectedReason == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Please select a reason ❗")),
+                );
+                return;
+              }
+
+              try {
+                await FirebaseFirestore.instance
+                    .collection('reports')
+                    .add({
+                  'reporterId': currentUser,
+                  'reportedUserId': widget.otherUserId,
+                  'reason': selectedReason,
+                  'details': detailController.text.trim(),
+                  'status': 'pending',
+                  'timestamp': Timestamp.now(),
+                  'chatId': widget.chatId,
+                });
+
+                print("✅ REPORT SAVED");
+
+                Navigator.pop(context);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Report submitted 🚨")),
+                );
+
+              } catch (e) {
+                print("🔥 FIRESTORE ERROR: $e");
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Error: $e")),
+                );
+              }
             },
             child: const Text("Submit"),
           ),
         ],
-      ),
-    );
-  }
+      );
+    },
+  );
+}
 
   void handleTopMenuAction(String value) async {
     if (value == "view_profile") {

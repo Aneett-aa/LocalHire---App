@@ -64,14 +64,19 @@ class SosScreen extends StatelessWidget {
                       Text("Lat: ${data['latitude']}"),
                       Text("Lng: ${data['longitude']}"),
                       const SizedBox(height: 5),
-                      Text(
-                        "STATUS: ${data['status'] ?? 'pending'}",
-                        style: const TextStyle(color: Colors.red),
+
+                      // ✅ ONLY CHANGE HERE
+                      const Text(
+                        "🚨 SOS ACTIVE",
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
 
-                 trailing: IconButton(
+                  trailing: IconButton(
                     icon: const Icon(Icons.location_on, color: Colors.blue),
                     onPressed: () async {
                       final link = data['mapsLink'];

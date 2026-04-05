@@ -60,141 +60,197 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            _header(),
-            const SizedBox(height: 15),
-            _searchBarWithNotification(),
-            const SizedBox(height: 15),
-            _filterSortRow(),
-            const SizedBox(height: 15),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection("jobs")
-                    .orderBy("createdAt", descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text("No Jobs Available"));
-                  }
-List<Map<String, dynamic>> jobs = [];
+  @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFFF7F7F7),
 
-// Get today's start (00:00)
-final now = DateTime.now();
-final todayStart = DateTime(now.year, now.month, now.day);
+    body: StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection("users")
+          .doc(widget.userId)
+          .snapshots(),
+      builder: (context, userSnapshot) {
 
-for (var doc in snapshot.data!.docs) {
-  final data = doc.data() as Map<String, dynamic>;
+        if (!userSnapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-  final dynamic dateValue = data["date"];
-  DateTime? jobDate;
+        final userData =
+            userSnapshot.data!.data() as Map<String, dynamic>;
 
-  if (dateValue is Timestamp) {
-    jobDate = dateValue.toDate();
-  } else if (dateValue is String) {
-    try {
-      jobDate = DateTime.parse(dateValue);
-    } catch (_) {}
-  }
-
-  if (jobDate != null) {
-    final jobDay = DateTime(jobDate.year, jobDate.month, jobDate.day);
-
-    // Delete only AFTER the day passes
-    if (jobDay.isBefore(todayStart)) {
-      FirebaseFirestore.instance
-          .collection("jobs")
-          .doc(doc.id)
-          .delete();
-      continue;
-    }
-  }
-
-  jobs.add({
-    ...data,
-    "jobId": doc.id,
-  });
-}
-
-                  List<Map<String, dynamic>> filteredJobs =
-                      jobs.where((job) {
-                    if (userLat == 0 || userLng == 0) {
-                      return true;
-                    }
-
-                    final matchesSearch = job["title"]
-                        .toString()
-                        .toLowerCase()
-                        .contains(searchText.toLowerCase());
-                    final isInstant = job["isInstantJob"] ?? false;
-                    final type = job["type"] ?? "";
-                    final matchesType = selectedType == "All" ||
-                        (selectedType == "ONLINE" && type == "ONLINE") ||
-                        (selectedType == "OFFLINE" && type == "OFFLINE") ||
-                        (selectedType == "INSTANT ONLINE" &&
-                            isInstant &&
-                            type == "ONLINE") ||
-                        (selectedType == "INSTANT OFFLINE" &&
-                            isInstant &&
-                            type == "OFFLINE");
-                    final salary = job["salary"] ?? 0;
-                    final matchesPrice =
-                        salary >= minPrice && salary <= maxPrice;
-
-                    bool matchesDistance = true;
-                    final geo = job["locationGeoPoint"];
-                    if (geo != null && geo is GeoPoint) {
-                      double meters = Geolocator.distanceBetween(
-                        userLat,
-                        userLng,
-                        geo.latitude,
-                        geo.longitude,
-                      );
-                      double km = meters / 1000;
-                      if (km > distance) {
-                        matchesDistance = false;
-                      }
-                    }
-
-                    return matchesSearch &&
-                        matchesType &&
-                        matchesPrice &&
-                        matchesDistance;
-                  }).toList();
-
-                  if (selectedSort == "Salary: Low to High") {
-                    filteredJobs
-                        .sort((a, b) => a["salary"].compareTo(b["salary"]));
-                  } else if (selectedSort == "Salary: High to Low") {
-                    filteredJobs
-                        .sort((a, b) => b["salary"].compareTo(a["salary"]));
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: filteredJobs.length,
-                    itemBuilder: (context, index) {
-                      return _jobCard(filteredJobs[index]);
-                    },
-                  );
-                },
-              ),
+        // 🚫 BAN CHECK
+        if (userData['isBanned'] == true) {
+          return const Center(
+            child: Text(
+              "🚫 Your account is banned",
+              style: TextStyle(fontSize: 18),
             ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _bottomNav(),
-    );
-  }
+          );
+        }
+
+        // 🔐 VERIFICATION CHECK
+        if (userData['verificationStatus'] != 'approved') {
+          return Center(
+            child: Text(
+              userData['verificationStatus'] == 'rejected'
+                  ? "❌ Your account was rejected"
+                  : "⏳ Waiting for admin approval",
+              style: const TextStyle(fontSize: 18),
+            ),
+          );
+        }
+
+        // ✅ NORMAL UI (your existing UI)
+        return SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              _header(),
+              const SizedBox(height: 15),
+              _searchBarWithNotification(),
+              const SizedBox(height: 15),
+              _filterSortRow(),
+              const SizedBox(height: 15),
+
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection("jobs")
+                      .orderBy("createdAt", descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+
+                    if (snapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const Center(
+                          child: CircularProgressIndicator());
+                    }
+
+                    if (!snapshot.hasData ||
+                        snapshot.data!.docs.isEmpty) {
+                      return const Center(
+                          child: Text("No Jobs Available"));
+                    }
+
+                    List<Map<String, dynamic>> jobs = [];
+
+                    final now = DateTime.now();
+                    final todayStart =
+                        DateTime(now.year, now.month, now.day);
+
+                    for (var doc in snapshot.data!.docs) {
+                      final data =
+                          doc.data() as Map<String, dynamic>;
+
+                      final dynamic dateValue = data["date"];
+                      DateTime? jobDate;
+
+                      if (dateValue is Timestamp) {
+                        jobDate = dateValue.toDate();
+                      } else if (dateValue is String) {
+                        try {
+                          jobDate = DateTime.parse(dateValue);
+                        } catch (_) {}
+                      }
+
+                      if (jobDate != null) {
+                        final jobDay = DateTime(
+                            jobDate.year,
+                            jobDate.month,
+                            jobDate.day);
+
+                        if (jobDay.isBefore(todayStart)) {
+                          FirebaseFirestore.instance
+                              .collection("jobs")
+                              .doc(doc.id)
+                              .delete();
+                          continue;
+                        }
+                      }
+
+                      jobs.add({...data, "jobId": doc.id});
+                    }
+
+                    List<Map<String, dynamic>> filteredJobs =
+                        jobs.where((job) {
+                      if (userLat == 0 || userLng == 0) {
+                        return true;
+                      }
+
+                      final matchesSearch = job["title"]
+                          .toString()
+                          .toLowerCase()
+                          .contains(searchText.toLowerCase());
+
+                      final isInstant =
+                          job["isInstantJob"] ?? false;
+                      final type = job["type"] ?? "";
+
+                      final matchesType =
+                          selectedType == "All" ||
+                              (selectedType == "ONLINE" &&
+                                  type == "ONLINE") ||
+                              (selectedType == "OFFLINE" &&
+                                  type == "OFFLINE") ||
+                              (selectedType ==
+                                      "INSTANT ONLINE" &&
+                                  isInstant &&
+                                  type == "ONLINE") ||
+                              (selectedType ==
+                                      "INSTANT OFFLINE" &&
+                                  isInstant &&
+                                  type == "OFFLINE");
+
+                      final salary = job["salary"] ?? 0;
+                      final matchesPrice =
+                          salary >= minPrice &&
+                              salary <= maxPrice;
+
+                      bool matchesDistance = true;
+                      final geo = job["locationGeoPoint"];
+
+                      if (geo != null && geo is GeoPoint) {
+                        double meters =
+                            Geolocator.distanceBetween(
+                          userLat,
+                          userLng,
+                          geo.latitude,
+                          geo.longitude,
+                        );
+                        double km = meters / 1000;
+                        if (km > distance) {
+                          matchesDistance = false;
+                        }
+                      }
+
+                      return matchesSearch &&
+                          matchesType &&
+                          matchesPrice &&
+                          matchesDistance;
+                    }).toList();
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16),
+                      itemCount: filteredJobs.length,
+                      itemBuilder: (context, index) {
+                        return _jobCard(
+                            filteredJobs[index]);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+
+    bottomNavigationBar: _bottomNav(),
+  );
+}
 
   Widget _header() {
     return Padding(
