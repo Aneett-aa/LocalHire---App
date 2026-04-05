@@ -30,12 +30,21 @@ class _HomeScreenState extends State<HomeScreen> {
   double maxPrice = 50000;
   double distance = 100;
   String selectedMode = "All";
+  String? _highlightedJobId;
+  final ScrollController _scrollController = ScrollController();    
+  final Map<String, GlobalKey> _jobKeys = {}; 
 
   @override
   void initState() {
     super.initState();
     _loadUserLocation();
   }
+
+  @override
+  void dispose() {
+  _scrollController.dispose();
+  super.dispose();
+}
 
   Future<void> _loadUserLocation() async {
     try {
@@ -72,11 +81,11 @@ Widget build(BuildContext context) {
       builder: (context, userSnapshot) {
 
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
-  return const Center(child: CircularProgressIndicator());
-}
+          return const Center(child: CircularProgressIndicator());
+        }
 
-final userData =
-    (userSnapshot.data!.data() as Map<String, dynamic>?) ?? {};
+        final userData =
+            (userSnapshot.data!.data() as Map<String, dynamic>?) ?? {};
 
         // 🚫 BAN CHECK
         if (userData['isBanned'] == true) {
@@ -159,11 +168,8 @@ final userData =
                             jobDate.month,
                             jobDate.day);
 
+                        // ✅ Skip expired jobs (NO DELETE)
                         if (jobDay.isBefore(todayStart)) {
-                          FirebaseFirestore.instance
-                              .collection("jobs")
-                              .doc(doc.id)
-                              .delete();
                           continue;
                         }
                       }
@@ -173,6 +179,7 @@ final userData =
 
                     List<Map<String, dynamic>> filteredJobs =
                         jobs.where((job) {
+
                       if (userLat == 0 || userLng == 0) {
                         return true;
                       }
@@ -229,13 +236,22 @@ final userData =
                           matchesDistance;
                     }).toList();
 
+                    // 🔽 SORT
+                    if (selectedSort == "Salary: Low to High") {
+                      filteredJobs.sort(
+                          (a, b) => a["salary"].compareTo(b["salary"]));
+                    } else if (selectedSort == "Salary: High to Low") {
+                      filteredJobs.sort(
+                          (a, b) => b["salary"].compareTo(a["salary"]));
+                    }
+
                     return ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16),
                       itemCount: filteredJobs.length,
                       itemBuilder: (context, index) {
-                        return _jobCard(
-                            filteredJobs[index]);
+                        return _jobCard(filteredJobs[index]);
                       },
                     );
                   },
@@ -250,7 +266,6 @@ final userData =
     bottomNavigationBar: _bottomNav(),
   );
 }
-
   Widget _header() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -333,14 +348,38 @@ final userData =
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => NotificationScreen(userId: widget.userId),
-                ),
-              );
-            },
+          onTap: () async {
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => NotificationScreen(userId: widget.userId),
+    ),
+  );
+
+  debugPrint("📬 Returned from NotificationScreen: $result"); // ✅ add this
+
+  if (result != null && result['scrollToJobId'] != null) {
+    final jobId = result['scrollToJobId'] as String;
+    setState(() => _highlightedJobId = jobId);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final key = _jobKeys[jobId];
+      debugPrint("🔑 Looking for key: $jobId | found: ${key?.currentContext != null}");
+      if (key?.currentContext != null) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeInOut,
+          alignment: 0.1,
+        );
+      }
+    });
+
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _highlightedJobId = null);
+    });
+  }
+},
             child: Container(
               width: 50,
               height: 50,
@@ -618,6 +657,9 @@ final userData =
   }
 
   Widget _jobCard(Map<String, dynamic> job) {
+  final String jobId = job["jobId"] ?? "";
+  _jobKeys[jobId] ??= GlobalKey();
+  final bool isHighlighted = _highlightedJobId != null && _highlightedJobId == jobId;
   final String type = job["type"] ?? "N/A";
   final bool isInstant = job["isInstantJob"] ?? false;
   final String title = job["title"] ?? "No Title";
@@ -637,11 +679,17 @@ final userData =
   }
 
   return Container(
+    key: _jobKeys[jobId],
     margin: const EdgeInsets.only(bottom: 16),
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color.fromARGB(255, 245, 228, 195), 
+    color: isHighlighted
+    ? const Color.fromARGB(255, 192, 131, 32)         
+    : const Color.fromARGB(255, 245, 228, 195),
       borderRadius: BorderRadius.circular(18),
+       border: isHighlighted
+          ? Border.all(color: const Color.fromARGB(255, 156, 95, 3), width: 2.5)
+          : null,
       boxShadow: [
         BoxShadow(
           color: const Color.fromARGB(13, 0, 0, 0),
